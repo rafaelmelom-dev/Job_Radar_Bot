@@ -1,3 +1,5 @@
+"""Entity Job"""
+
 import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -5,23 +7,34 @@ from typing import List, Optional
 
 @dataclass
 class Course:
+    """Entity Course"""
     title: str
     url: str
-    platform: str 
+    platform: str
     provider_or_channel: str
     is_paid: bool
 
 @dataclass
+class CompanyInfo:
+    """Entity CompanyInfo"""
+    name: str
+    rating: float
+    recommend_percentage: int
+    reviews_count: int
+    headquarter: str
+    link: str
+
+@dataclass
 class Job:
+    """Entity Job"""
     title: str
     company_name: str
+    company: CompanyInfo = field(default_factory=CompanyInfo("", 0.0, 0, 0, "", ""))
     location: str
-    work_regime: str  
+    work_regime: str
     apply_url: str
     description: str
     external_id: Optional[str] = None
-    average_salary: Optional[str] = "Não informado"
-    culture_rating: Optional[float] = None
     technical_requirements: List[str] = field(default_factory=list)
     courses: List[Course] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
