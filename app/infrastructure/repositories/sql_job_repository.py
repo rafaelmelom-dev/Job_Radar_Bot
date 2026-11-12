@@ -3,7 +3,7 @@ import logging
 from typing import List, Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.domain.entities.job import Job, Course
+from app.domain.entities.job import Job, Course, CompanyInfo
 from app.domain.repositories.job_repository import JobRepository
 from app.infrastructure.database.models import JobModel, NotificationLogModel, SubscriptionModel
 
@@ -26,20 +26,30 @@ class SqlJobRepository(JobRepository):
             for c in courses_raw
         ]
         
+        company_raw = json.loads(model.company_json or "{}")
+        company = CompanyInfo(
+            name = company_raw.get("name", ""),
+            rating = company_raw.get("rating", ""),
+            recommend_percentage = company_raw.get("recommend_percentage", ""),
+            headquarter = company_raw.get("headquarter", ""),
+            link = company_raw.get("link", ""),
+            reviews_count = company_raw.get("reviews_count", "")
+        )
+
         job = Job(
             title=model.title,
             company_name=model.company_name,
+            company=company,
             location=model.location,
             work_regime=model.work_regime,
             apply_url=model.apply_url,
             description=model.description,
-            average_salary=model.average_salary,
-            culture_rating=model.culture_rating,
             technical_requirements=[t for t in (model.technical_requirements or "").split(",") if t],
             courses=courses,
             created_at=model.created_at,
             job_hash=model.job_hash
         )
+        
         job.id = model.id
         return job
 
@@ -63,10 +73,20 @@ class SqlJobRepository(JobRepository):
             "is_paid": c.is_paid
         } for c in job.courses])
         
+        company_payload = json.dumps({
+            "name": job.company.name,
+            "rating": job.company.rating,
+            "recommend_percentage": job.company.recommend_percentage,
+            "reviews_count": job.company.reviews_count,
+            "headquarter": job.company.headquarter,
+            "link": job.company.link
+        })
+        
         model = JobModel(
             job_hash=job.job_hash,
             title=job.title,
             company_name=job.company_name,
+            company=company_payload,
             location=job.location,
             work_regime=job.work_regime,
             apply_url=job.apply_url,

@@ -1,12 +1,11 @@
-from typing import Optional
+from dataclasses import asdict
 from urllib.parse import quote
 
-from dataclasses import asdict
 import pandas as pd
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 from playwright_stealth import Stealth
 
-from app.domain.entities.company import CompanyInfo
+from app.domain.entities.job import CompanyInfo
 
 HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -66,45 +65,52 @@ def click_first_company(page: Page) -> None:
 
 def extract_company_info(page: Page) -> CompanyInfo:
     """Extrai informações da empresa da página de overview."""
-    sede = page.locator(
+    headquarter = page.locator(
         "xpath=//span[text()='Sede']/preceding-sibling::span[1]"
     ).text_content()
-    nome = page.locator(
+    name = page.locator(
         "css=.EmployerInfo_employerInfoHeadingWrapper__3GunT"
     ).text_content()
     rating = page.locator("css=.CompanyOverview_overallRating__TKVRp").text_content()
+    rating = rating if rating else ""
     rating = float(rating.strip().replace(",", "."))
-    recomendacao = page.locator(
+    recommend_percentage = page.locator(
         "css=.ReviewOverview_recommendLine__qeCP5"
     ).text_content()
-    recomendacao = "".join(char for char in recomendacao if char.strip().isdigit())
-    recomendacao = int(recomendacao)
-    contagem = page.locator("css=.CompanyOverview_ratingCount__j9KfQ").text_content()
-    contagem = "".join(char for char in contagem if char.strip().isdigit())
-    contagem = int(contagem)
+    recommend_percentage = recommend_percentage if recommend_percentage else ""
+    recommend_percentage = "".join(
+        char for char in recommend_percentage if char.strip().isdigit()
+    )
+    recommend_percentage = int(recommend_percentage)
+    reviews_count = page.locator(
+        "css=.CompanyOverview_ratingCount__j9KfQ"
+    ).text_content()
+    reviews_count = reviews_count if reviews_count else ""
+    reviews_count = "".join(char for char in reviews_count if char.strip().isdigit())
+    reviews_count = int(reviews_count)
 
     return CompanyInfo(
-        nome=nome.strip(),
+        name=name.strip() if name else "",
         rating=rating,
-        recomendacao=recomendacao,
-        contagem_avaliacoes=contagem,
-        sede=sede.strip(),
+        recommend_percentage=recommend_percentage,
+        reviews_count=reviews_count,
+        headquarter=headquarter.strip() if headquarter else "",
         link=page.url,
     )
 
 
 def print_company_info(info: CompanyInfo) -> None:
     """Exibe informações formatadas."""
-    print(f"Nome: {info.nome}")
+    print(f"Nome: {info.name}")
     print(f"Rating: {info.rating}")
-    print(f"Recomendação: {info.recomendacao}")
-    print(f"Contagem avaliações: {info.contagem_avaliacoes}")
-    print(f"Sede: {info.sede}")
+    print(f"Recomendação: {info.recommend_percentage}")
+    print(f"Contagem avaliações: {info.reviews_count}")
+    print(f"Sede: {info.headquarter}")
     print(f"Link: {info.link}")
-    print("")
+    print()
 
 
-def scrape_keyword(page: Page, keyword: str) -> Optional[CompanyInfo]:
+def scrape_keyword(page: Page, keyword: str) -> CompanyInfo | None:
     """Processa uma única keyword: busca -> clica -> extrai. Retorna None se falhar."""
     try:
         navigate_to_search(page, keyword)
