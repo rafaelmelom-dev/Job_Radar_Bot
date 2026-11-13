@@ -1,17 +1,11 @@
 import asyncio
 import html
-import json
 import logging
 import os
-import re
-import urllib.parse
-from typing import List, Optional, Tuple
 
 import aiohttp
-import requests
-from bs4 import BeautifulSoup
 
-from app.domain.entities.job import CompanyInfo, Job, Course
+from app.domain.entities.job import CompanyInfo, Course, Job
 from app.infrastructure.scrapers import glassdoor
 
 logger = logging.getLogger(__name__)
@@ -31,7 +25,7 @@ class DataEnrichmentService:
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
-    async def validate_tags(self, title: str) -> List[str]:
+    async def validate_tags(self, title: str) -> list[str]:
         """Extrai as tecnologias essenciais mencionadas no cargo."""
         tech_dictionary = [
             "python",
@@ -76,7 +70,7 @@ class DataEnrichmentService:
 
     async def _get_youtube_courses(
         self, tag: str, session: aiohttp.ClientSession
-    ) -> List[Course]:
+    ) -> list[Course]:
         """Busca vídeos reais via YouTube Data API v3."""
         if not YOUTUBE_API_KEY:
             # Fallback se a API Key não estiver configurada
@@ -123,7 +117,7 @@ class DataEnrichmentService:
 
     async def _get_udemy_courses(
         self, tag: str, session: aiohttp.ClientSession
-    ) -> List[Course]:
+    ) -> list[Course]:
         """Busca cursos via Udemy REST API Oficial."""
         if not UDEMY_CLIENT_ID or not UDEMY_CLIENT_SECRET:
             # Fallback se a API não estiver configurada
@@ -168,7 +162,7 @@ class DataEnrichmentService:
 
         return []
 
-    async def get_courses_for_tag(self, tag: str) -> List[Course]:
+    async def get_courses_for_tag(self, tag: str) -> list[Course]:
         """Orquestra as buscas nas APIs de cursos de forma concorrente."""
         async with aiohttp.ClientSession() as session:
             yt_task = self._get_youtube_courses(tag, session)
@@ -197,4 +191,3 @@ class DataEnrichmentService:
 
         # job.courses = courses
         return job
-

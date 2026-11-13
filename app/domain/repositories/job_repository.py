@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+
 from app.domain.entities.job import Job
+
 
 class JobRepository(ABC):
     @abstractmethod
@@ -8,7 +9,7 @@ class JobRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_by_hash(self, job_hash: str) -> Optional[Job]:
+    async def get_by_hash(self, job_hash: str) -> Job | None:
         pass
 
     @abstractmethod
@@ -24,15 +25,14 @@ class JobRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_unnotified_jobs_for_subscription(self, subscription_id: int, role: str, limit: int = 10) -> List[Job]:
+    async def get_unnotified_jobs_for_subscription(
+        self, subscription_id: int, role: str, limit: int = 10
+    ) -> list[Job]:
         pass
 
     @abstractmethod
     async def get_unnotified_jobs_for_subscription(
-        self, 
-        subscription_id: int, 
-        telegram_chat_id: int, 
-        role: str, 
-        limit: int = 10
-    ) -> List[Job]:
+        self, subscription_id: int, telegram_chat_id: int, role: str, limit: int = 10
+    ) -> list[Job]:
         pass
+
