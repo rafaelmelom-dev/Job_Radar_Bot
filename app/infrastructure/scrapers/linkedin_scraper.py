@@ -1,3 +1,4 @@
+import asyncio
 from jobspy import scrape_jobs
 
 from app.domain.entities.job import Job
@@ -9,7 +10,8 @@ class LinkedInScraperService:
         Orquestra a pesquisa e a extração assíncrona com restrição nacional.
         """
 
-        jobs_raw = scrape_jobs(
+        jobs_raw = await asyncio.to_thread(
+            scrape_jobs,
             site_name=["linkedin"],
             search_term=keyword,
             location="Brazil",
