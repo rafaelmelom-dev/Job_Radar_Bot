@@ -1,0 +1,43 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "telegram-bot": {
+      "root": "./",
+      "entrypoint": "Dockerfile",
+      "instances": {
+        "iad1": 1
+      }
+    },
+    "radar-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile.worker",
+      "command": [
+        "celery",
+        "-A",
+        "app.infrastructure.tasks.celery_app:celery_app",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=1"
+      ],
+      "instances": {
+        "iad1": 1
+      }
+    },
+    "radar-beat": {
+      "root": ".",
+      "entrypoint": "Dockerfile.worker",
+      "command": [
+        "celery",
+        "-A",
+        "app.infrastructure.tasks.celery_app:celery_app",
+        "beat",
+        "--loglevel=info",
+        "--schedule=/tmp/celerybeat-schedule"
+      ],
+      "instances": {
+        "iad1": 1
+      }
+    }
+  },
+  "framework": null
+}

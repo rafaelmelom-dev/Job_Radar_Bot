@@ -29,11 +29,11 @@ class Job:
     """Entity Job"""
     title: str
     company_name: str
-    company: CompanyInfo = field(default_factory=CompanyInfo("", 0.0, 0, 0, "", ""))
     location: str
     work_regime: str
     apply_url: str
     description: str
+    company: CompanyInfo = field(default_factory=CompanyInfo("", 0.0, 0, 0, "", ""))
     external_id: Optional[str] = None
     technical_requirements: List[str] = field(default_factory=list)
     courses: List[Course] = field(default_factory=list)

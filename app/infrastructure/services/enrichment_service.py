@@ -185,16 +185,16 @@ class DataEnrichmentService:
         # 1. Extração de tags técnicas
         job.technical_requirements = await self.validate_tags(job.title)
 
-        # 2. Associação dos cursos via APIs (YouTube e Udemy)
-        courses = []
-        for tag in job.technical_requirements[
-            :2
-        ]:  # Limita a 2 tags para não gerar muito tráfego/custo
-            courses.extend(await self.get_courses_for_tag(tag))
+        # # 2. Associação dos cursos via APIs (YouTube e Udemy)
+        # courses = []
+        # for tag in job.technical_requirements[
+        #     :2
+        # ]:  # Limita a 2 tags para não gerar muito tráfego/custo
+        #     courses.extend(await self.get_courses_for_tag(tag))
 
         # 3. Associação as informações da empresa
         job.company = await self._get_company(job.company_name)
 
-        job.courses = courses
+        # job.courses = courses
         return job
 
