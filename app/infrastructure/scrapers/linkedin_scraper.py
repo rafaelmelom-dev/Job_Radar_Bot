@@ -29,7 +29,7 @@ class LinkedInScraperService:
                 description=job_raw.description,
                 external_id=job_raw.id,
             )
-            for job_raw in jobs_raw
+            for job_raw in jobs_raw.itertuples(index=False)
         ]
 
         return jobs
