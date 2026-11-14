@@ -2,9 +2,11 @@ import asyncio
 import logging
 import os
 from aiogram import Bot, Dispatcher
-from app.infrastructure.database.session import AsyncSessionLocal
+from app.infrastructure.database.session import AsyncSessionLocal, engine
 from app.presentation.telegram.handlers import router as telegram_router
-from app.infrastructure.repositories.sql_subscription_repository import SqlSubscriptionRepository
+from app.infrastructure.repositories.sql_subscription_repository import (
+    SqlSubscriptionRepository,
+)
 from app.infrastructure.repositories.sql_job_repository import SqlJobRepository
 from app.infrastructure.scrapers.linkedin_scraper import LinkedInScraperService
 from app.infrastructure.services.enrichment_service import DataEnrichmentService
@@ -31,10 +33,15 @@ async def run_background_radar():
             enrichment = DataEnrichmentService()
             notification = TelegramNotificationService(bot)
 
-            use_case = ProcessRadarUseCase(sub_repo, job_repo, scraper, enrichment, notification)
+            use_case = ProcessRadarUseCase(
+                sub_repo, job_repo, scraper, enrichment, notification
+            )
             await use_case.execute()
     except Exception as e:
-        logger.critical(f"Erro crítico durante a execução do radar em segundo plano: {e}", exc_info=True)
+        logger.critical(
+            f"Erro crítico durante a execução do radar em segundo plano: {e}",
+            exc_info=True,
+        )
         raise
     finally:
         await bot.session.close()

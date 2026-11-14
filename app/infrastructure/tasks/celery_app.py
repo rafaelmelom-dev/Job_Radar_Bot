@@ -24,7 +24,7 @@ celery_app.conf.timezone = "UTC"
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_backoff_max=600,
-    retry_jitter=True
+    retry_jitter=True,
 )
 def execute_radar_cycle(self):
     """
@@ -36,9 +36,13 @@ def execute_radar_cycle(self):
     import asyncio
     from app.main import run_background_radar
 
-    logger.info(f"Iniciando ciclo do radar (Tentativa {self.request.retries + 1}/{self.max_retries + 1})")
+    logger.info(
+        f"Iniciando ciclo do radar (Tentativa {self.request.retries + 1}/{self.max_retries + 1})"
+    )
     try:
         asyncio.run(run_background_radar())
     except Exception as exc:
-        logger.error(f"Tentativa {self.request.retries + 1} falhou: {exc}. Agendando retentativa...")
+        logger.error(
+            f"Tentativa {self.request.retries + 1} falhou: {exc}. Agendando retentativa..."
+        )
         raise exc
