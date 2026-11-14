@@ -63,7 +63,8 @@ class DataEnrichmentService:
 
     async def _get_company(self, company_name: str) -> CompanyInfo:
         """Extrai as informações sobre a empresa"""
-        company_info = glassdoor.run_scraper([company_name]).get(
+        company_info = await glassdoor.run_scraper([company_name])
+        company_info = company_info.get(
             company_name, CompanyInfo("", 0.0, 0, 0, "", "")
         )
         return company_info
@@ -190,4 +191,5 @@ class DataEnrichmentService:
         job.company = await self._get_company(job.company_name)
 
         # job.courses = courses
+        job.courses = []
         return job
