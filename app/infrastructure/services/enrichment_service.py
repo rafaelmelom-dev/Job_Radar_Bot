@@ -93,8 +93,8 @@ class DataEnrichmentService:
 
     async def get_courses_for_tag(self, tag: str) -> list[Course]:
         """Orquestra as buscas nos scrapes de cursos."""
-        yt_courses = await self._get_youtube_courses(tag, 1)
         udemy_courses = await self._get_udemy_courses(f"curso {tag}")
+        yt_courses = await self._get_youtube_courses(f"curso {tag}", 1)
 
         return yt_courses + udemy_courses
 
