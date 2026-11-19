@@ -22,7 +22,7 @@ class DataEnrichmentService:
 
     async def validate_tags(self, title: str, description: str) -> list[str]:
         """Extrai as tecnologias essenciais mencionadas no cargo."""
-        tags = StackOverflow.run_scraper(2, None)
+        tags = await StackOverflow.run_scraper(2, None)
 
         tech_dictionary = [tag.nome for tag in tags]
 

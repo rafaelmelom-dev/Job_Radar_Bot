@@ -1,10 +1,10 @@
+import asyncio
 import random
-import time
 from dataclasses import dataclass, asdict
 from typing import Optional
 
 import pandas as pd
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from playwright_stealth import Stealth
 
 HEADERS = {
@@ -30,14 +30,14 @@ class TagInfo:
     link: str
 
 
-def pausa(minimo: float = 1.0, maximo: float = 3.0) -> None:
+async def pausa(minimo: float = 1.0, maximo: float = 3.0) -> None:
     """Pausa com duração aleatória, como uma pessoa lendo a página."""
-    time.sleep(random.uniform(minimo, maximo))
+    await asyncio.sleep(random.uniform(minimo, maximo))
 
 
-def create_browser(p) -> Browser:
+async def create_browser(p) -> Browser:
     """Inicia o browser com args anti-detecção (janela visível, mais difícil de barrar)."""
-    return p.chromium.launch(
+    return await p.chromium.launch(
         headless=False,
         args=[
             "--disable-blink-features=AutomationControlled",
@@ -47,9 +47,9 @@ def create_browser(p) -> Browser:
     )
 
 
-def create_context(browser: Browser) -> BrowserContext:
+async def create_context(browser: Browser) -> BrowserContext:
     """Cria contexto com fingerprint brasileiro e headers customizados."""
-    return browser.new_context(
+    return await browser.new_context(
         viewport={"width": 1366, "height": 768},
         screen={"width": 1366, "height": 768},
         locale="pt-BR",
@@ -65,67 +65,71 @@ def create_context(browser: Browser) -> BrowserContext:
     )
 
 
-def apply_stealth(context: BrowserContext) -> None:
+async def apply_stealth(context: BrowserContext) -> None:
     """Aplica stealth para evitar detecção de automação."""
     stealth = Stealth()
-    stealth.apply_stealth_sync(context)
+    await stealth.apply_stealth_async(context)
 
 
-def comportamento_humano(page: Page) -> None:
+async def comportamento_humano(page: Page) -> None:
     """Move o mouse e rola a página aos poucos."""
     for _ in range(random.randint(3, 6)):
-        page.mouse.move(
+        await page.mouse.move(
             random.randint(100, 1200),
             random.randint(100, 700),
             steps=random.randint(10, 25),
         )
-        pausa(0.2, 0.6)
+        await pausa(0.2, 0.6)
 
-    altura = page.evaluate("document.body.scrollHeight")
+    altura = await page.evaluate("document.body.scrollHeight")
     posicao = 0
     while posicao < altura:
         passo = random.randint(250, 500)
-        page.mouse.wheel(0, passo)
+        await page.mouse.wheel(0, passo)
         posicao += passo
-        pausa(0.3, 0.9)
+        await pausa(0.3, 0.9)
 
 
-def aguardar_cloudflare(page: Page, tentativas: int = 10) -> bool:
+async def aguardar_cloudflare(page: Page, tentativas: int = 10) -> bool:
     """Espera a verificação passar. Retorna False se continuar bloqueado."""
     for _ in range(tentativas):
-        titulo = page.title().lower()
+        titulo = (await page.title()).lower()
         if "just a moment" not in titulo and "um momento" not in titulo:
             return True
         print("[AVISO] Verificação do Cloudflare... resolva na janela se aparecer captcha.")
-        time.sleep(3)
+        await asyncio.sleep(3)
     return False
 
 
-def navigate_to_tags(page: Page, pagina: int) -> None:
+async def navigate_to_tags(page: Page, pagina: int) -> None:
     """Navega para a página de tags populares do Stack Overflow."""
     url = f"https://stackoverflow.com/tags?tab=popular&page={pagina}"
-    page.goto(url, wait_until="domcontentloaded", timeout=60000)
-    if not aguardar_cloudflare(page):
+    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+    if not await aguardar_cloudflare(page):
         raise RuntimeError("bloqueado pelo Cloudflare")
-    page.wait_for_selector("#tags-browser .js-tag-cell", state="visible", timeout=15000)
+    await page.wait_for_selector("#tags-browser .js-tag-cell", state="visible", timeout=15000)
 
 
-def extract_tags(page: Page) -> list[TagInfo]:
+async def extract_tags(page: Page) -> list[TagInfo]:
     """Extrai as tags da página atual."""
     resultado: list[TagInfo] = []
     cards = page.locator("#tags-browser .js-tag-cell")
 
-    for i in range(cards.count()):
+    for i in range(await cards.count()):
         card = cards.nth(i)
         link_tag = card.locator("a.post-tag").first
-        nome = link_tag.text_content().strip()
-        href = link_tag.get_attribute("href") or ""
+        nome = (await link_tag.text_content() or "").strip()
+        href = await link_tag.get_attribute("href") or ""
 
-        qtd_texto = card.locator(".fs-caption").first.text_content()
+        qtd_texto = await card.locator(".fs-caption").first.text_content() or ""
         qtd = int("".join(c for c in qtd_texto if c.isdigit()))
 
         desc_loc = card.locator("div.v-truncate4")
-        descricao = desc_loc.first.text_content().strip() if desc_loc.count() else ""
+        descricao = (
+            (await desc_loc.first.text_content() or "").strip()
+            if await desc_loc.count()
+            else ""
+        )
 
         resultado.append(
             TagInfo(
@@ -146,12 +150,12 @@ def print_tag_info(info: TagInfo) -> None:
     print("")
 
 
-def scrape_page(page: Page, numero: int) -> Optional[list[TagInfo]]:
+async def scrape_page(page: Page, numero: int) -> Optional[list[TagInfo]]:
     """Processa uma página: navega -> age como humano -> extrai. Retorna None se falhar."""
     try:
-        navigate_to_tags(page, numero)
-        comportamento_humano(page)
-        tags = extract_tags(page)
+        await navigate_to_tags(page, numero)
+        await comportamento_humano(page)
+        tags = await extract_tags(page)
         for t in tags:
             print_tag_info(t)
         return tags
@@ -165,20 +169,20 @@ def export_tags(data: list[TagInfo], filename: str) -> None:
     df.to_excel(filename, index=False)
 
 
-def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
+async def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
     """Orquestra o scraping. Salva o Excel a cada página e para após 2 falhas seguidas."""
     resultados: list[TagInfo] = []
     falhas_seguidas = 0
 
-    with sync_playwright() as p:
-        browser = create_browser(p)
-        context = create_context(browser)
-        apply_stealth(context)
+    async with async_playwright() as p:
+        browser = await create_browser(p)
+        context = await create_context(browser)
+        await apply_stealth(context)
 
         try:
-            page = context.new_page()
+            page = await context.new_page()
             for numero in range(1, paginas + 1):
-                tags = scrape_page(page, numero)
+                tags = await scrape_page(page, numero)
                 if tags:
                     resultados.extend(tags)
                     falhas_seguidas = 0
@@ -189,11 +193,11 @@ def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
                     if falhas_seguidas >= 2:
                         print("[PARADO] 2 falhas seguidas, provavelmente bloqueio.")
                         break
-                pausa(5, 10)
+                await pausa(5, 10)
         except KeyboardInterrupt:
             print("\n[INTERROMPIDO] salvando o que foi coletado...")
         finally:
-            browser.close()
+            await browser.close()
             # if resultados:
             #     export_tags(resultados, arquivo)
 
@@ -201,5 +205,5 @@ def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
 
 
 if __name__ == "__main__":
-    dados = run_scraper(paginas=3, arquivo="stackoverflow_tags.xlsx")
+    dados = asyncio.run(run_scraper(paginas=3, arquivo="stackoverflow_tags.xlsx"))
     print(f"\n--- Concluído: {len(dados)} tags salvas ---")
