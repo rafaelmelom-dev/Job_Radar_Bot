@@ -6,14 +6,9 @@ import os
 import aiohttp
 
 from app.domain.entities.job import CompanyInfo, Course, Job
-from app.infrastructure.scrapers import glassdoor
+from app.infrastructure.scrapers import glassdoor, youtube
 
 logger = logging.getLogger(__name__)
-
-# Configurações de API (Carregue do seu .env)
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
-UDEMY_CLIENT_ID = os.getenv("UDEMY_CLIENT_ID", "")
-UDEMY_CLIENT_SECRET = os.getenv("UDEMY_CLIENT_SECRET", "")
 
 
 class DataEnrichmentService:
@@ -69,52 +64,23 @@ class DataEnrichmentService:
         )
         return company_info
 
-    async def _get_youtube_courses(
-        self, tag: str, session: aiohttp.ClientSession
-    ) -> list[Course]:
-        """Busca vídeos reais via YouTube Data API v3."""
-        if not YOUTUBE_API_KEY:
-            # Fallback se a API Key não estiver configurada
-            return [
+    async def _get_youtube_courses(self, tag: str, limit: int) -> list[Course]:
+        """Busca vídeos reais via YouTube"""
+        courses_scraped = youtube.buscar_youtube(tag, limit)
+        courses = []
+
+        for course in courses_scraped:
+            courses.append(
                 Course(
-                    title=f"Vídeos tutoriais sobre {tag.title()}",
-                    url=f"https://www.youtube.com/results?search_query=curso+{tag}",
+                    title=course.get("titulo", ""),
+                    url=course.get("url", ""),
                     platform="YouTube",
-                    provider_or_channel="Busca YouTube",
-                    is_paid=False,
+                    provider_or_channel=course.get("autor", ""),
+                    is_paid=False
                 )
-            ]
+            )
 
-        url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
-            "part": "snippet",
-            "q": f"curso {tag} completo",
-            "type": "video",
-            "maxResults": 1,
-            "relevanceLanguage": "pt",
-            "key": YOUTUBE_API_KEY,
-        }
-
-        try:
-            async with session.get(url, params=params) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    courses = []
-                    for item in data.get("items", []):
-                        courses.append(
-                            Course(
-                                title=html.unescape(item["snippet"]["title"]),
-                                url=f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-                                platform="YouTube",
-                                provider_or_channel=item["snippet"]["channelTitle"],
-                                is_paid=False,
-                            )
-                        )
-                    return courses
-        except Exception as e:
-            logger.error(f"Erro na YouTube API: {e}")
-
-        return []
+        return courses
 
     async def _get_udemy_courses(
         self, tag: str, session: aiohttp.ClientSession
@@ -164,15 +130,12 @@ class DataEnrichmentService:
         return []
 
     async def get_courses_for_tag(self, tag: str) -> list[Course]:
-        """Orquestra as buscas nas APIs de cursos de forma concorrente."""
-        async with aiohttp.ClientSession() as session:
-            yt_task = self._get_youtube_courses(tag, session)
-            udemy_task = self._get_udemy_courses(tag, session)
+        """Orquestra as buscas nos scrapes de cursos."""
+        yt_courses = await self._get_youtube_courses(tag, 1)
+        udemy_courses = []
+        # udemy_task = self._get_udemy_courses(tag, session)
 
-            # Aguarda ambas as APIs responderem simultaneamente
-            yt_courses, udemy_courses = await asyncio.gather(yt_task, udemy_task)
-
-            return yt_courses + udemy_courses
+        return yt_courses + udemy_courses
 
     async def enrich(self, job: Job) -> Job:
         loop = asyncio.get_running_loop()
@@ -181,15 +144,15 @@ class DataEnrichmentService:
         job.technical_requirements = await self.validate_tags(job.title)
 
         # # 2. Associação dos cursos via APIs (YouTube e Udemy)
-        # courses = []
-        # for tag in job.technical_requirements[
-        #     :2
-        # ]:  # Limita a 2 tags para não gerar muito tráfego/custo
-        #     courses.extend(await self.get_courses_for_tag(tag))
+        courses = []
+        for tag in job.technical_requirements[
+            :2
+        ]:  # Limita a 2 tags para não gerar muito tráfego/custo
+            courses.extend(await self.get_courses_for_tag(tag))
 
         # 3. Associação as informações da empresa
         job.company = await self._get_company(job.company_name)
 
-        # job.courses = courses
-        job.courses = []
+        job.courses = courses
+        
         return job
