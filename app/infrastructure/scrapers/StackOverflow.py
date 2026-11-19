@@ -182,7 +182,7 @@ def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
                 if tags:
                     resultados.extend(tags)
                     falhas_seguidas = 0
-                    export_tags(resultados, arquivo)  # salva a cada página
+                    # export_tags(resultados, arquivo)  # salva a cada página
                     print(f"[OK] página {numero}: {len(resultados)} tags até agora")
                 else:
                     falhas_seguidas += 1
@@ -194,8 +194,8 @@ def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
             print("\n[INTERROMPIDO] salvando o que foi coletado...")
         finally:
             browser.close()
-            if resultados:
-                export_tags(resultados, arquivo)
+            # if resultados:
+            #     export_tags(resultados, arquivo)
 
     return resultados
 
