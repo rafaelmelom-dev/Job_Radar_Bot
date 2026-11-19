@@ -38,7 +38,7 @@ async def pausa(minimo: float = 1.0, maximo: float = 3.0) -> None:
 async def create_browser(p) -> Browser:
     """Inicia o browser com args anti-detecção (janela visível, mais difícil de barrar)."""
     return await p.chromium.launch(
-        headless=False,
+        headless=True,
         args=[
             "--disable-blink-features=AutomationControlled",
             "--start-maximized",
