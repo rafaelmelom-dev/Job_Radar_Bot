@@ -6,7 +6,7 @@ import os
 import aiohttp
 
 from app.domain.entities.job import CompanyInfo, Course, Job
-from app.infrastructure.scrapers import glassdoor, youtube
+from app.infrastructure.scrapers import glassdoor, youtube, StackOverflow
 
 logger = logging.getLogger(__name__)
 
@@ -20,40 +20,22 @@ class DataEnrichmentService:
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
-    async def validate_tags(self, title: str) -> list[str]:
+    async def validate_tags(self, title: str, description: str) -> list[str]:
         """Extrai as tecnologias essenciais mencionadas no cargo."""
-        tech_dictionary = [
-            "python",
-            "java",
-            "c#",
-            "c++",
-            "golang",
-            "ruby",
-            "php",
-            "javascript",
-            "typescript",
-            "react",
-            "angular",
-            "vue",
-            "node",
-            "fastapi",
-            "django",
-            "spring",
-            "sql",
-            "postgresql",
-            "mysql",
-            "mongodb",
-            "aws",
-            "azure",
-            "gcp",
-            "docker",
-            "kubernetes",
-            "devops",
-            "spark",
-            "hadoop",
+        tags = StackOverflow.run_scraper(2, None)
+
+        tech_dictionary = [tag.nome for tag in tags]
+
+        text = f"{title} {description}".lower()
+        ranked = [
+            (tag, text.count(tag.lower()))
+            for tag in tech_dictionary
         ]
-        title_clean = title.lower()
-        matched = [t for t in tech_dictionary if t in title_clean]
+        matched = [
+            tag
+            for tag, count in sorted(ranked, key=lambda item: item[1], reverse=True)
+            if count
+        ]
         return matched if matched else ["desenvolvimento", "tecnologia"]
 
     async def _get_company(self, company_name: str) -> CompanyInfo:
@@ -141,7 +123,9 @@ class DataEnrichmentService:
         loop = asyncio.get_running_loop()
 
         # 1. Extração de tags técnicas
-        job.technical_requirements = await self.validate_tags(job.title)
+        job.technical_requirements = await self.validate_tags(
+            job.title, job.description
+        )
 
         # # 2. Associação dos cursos via APIs (YouTube e Udemy)
         courses = []
