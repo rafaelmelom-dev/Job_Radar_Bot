@@ -6,7 +6,7 @@ import os
 import aiohttp
 
 from app.domain.entities.job import CompanyInfo, Course, Job
-from app.infrastructure.scrapers import glassdoor, youtube
+from app.infrastructure.scrapers import glassdoor, youtube, udemy_scraper
 
 logger = logging.getLogger(__name__)
 
@@ -76,64 +76,25 @@ class DataEnrichmentService:
                     url=course.get("url", ""),
                     platform="YouTube",
                     provider_or_channel=course.get("autor", ""),
-                    is_paid=False
+                    is_paid=False,
                 )
             )
 
         return courses
 
-    async def _get_udemy_courses(
-        self, tag: str, session: aiohttp.ClientSession
-    ) -> list[Course]:
-        """Busca cursos via Udemy REST API Oficial."""
-        if not UDEMY_CLIENT_ID or not UDEMY_CLIENT_SECRET:
-            # Fallback se a API não estiver configurada
-            return [
-                Course(
-                    title=f"Cursos de {tag.title()} na Udemy",
-                    url=f"https://www.udemy.com/courses/search/?q={tag}",
-                    platform="Udemy",
-                    provider_or_channel="Busca Udemy",
-                    is_paid=True,
-                )
-            ]
+    async def _get_udemy_courses(self, tag: str) -> list[Course]:
+        """Busca cursos via Udemy Scraper."""
 
-        url = "https://www.udemy.com/api-2.0/courses/"
-        params = {"search": tag, "page_size": 1, "language": "pt"}
-        auth = aiohttp.BasicAuth(UDEMY_CLIENT_ID, UDEMY_CLIENT_SECRET)
-
-        try:
-            async with session.get(url, params=params, auth=auth) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    courses = []
-                    for item in data.get("results", []):
-                        # Pega o nome do instrutor (se disponível)
-                        instructors = item.get(
-                            "visible_instructors", [{"title": "Instrutor Udemy"}]
-                        )
-                        provider = instructors[0]["title"] if instructors else "Udemy"
-
-                        courses.append(
-                            Course(
-                                title=item["title"],
-                                url=f"https://www.udemy.com{item['url']}",
-                                platform="Udemy",
-                                provider_or_channel=provider,
-                                is_paid=item.get("is_paid", True),
-                            )
-                        )
-                    return courses
-        except Exception as e:
-            logger.error(f"Erro na Udemy API: {e}")
+        async with aiohttp.ClientSession() as session:
+            scraper = udemy_scraper.UdemyScraper()
+            return await scraper.get_courses(tag, session)
 
         return []
 
     async def get_courses_for_tag(self, tag: str) -> list[Course]:
         """Orquestra as buscas nos scrapes de cursos."""
+        udemy_courses = await self._get_udemy_courses(f"curso {tag}")
         yt_courses = await self._get_youtube_courses(f"curso {tag}", 1)
-        udemy_courses = []
-        # udemy_task = self._get_udemy_courses(tag, session)
 
         return yt_courses + udemy_courses
 
@@ -154,5 +115,5 @@ class DataEnrichmentService:
         job.company = await self._get_company(job.company_name)
 
         job.courses = courses
-        
+
         return job
