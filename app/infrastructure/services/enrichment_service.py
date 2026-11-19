@@ -19,17 +19,21 @@ class DataEnrichmentService:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
         }
+        self._tech_dictionary: list[str] | None = None
+        self._tech_dictionary_lock = asyncio.Lock()
 
     async def validate_tags(self, title: str, description: str) -> list[str]:
         """Extrai as tecnologias essenciais mencionadas no cargo."""
-        tags = await StackOverflow.run_scraper(2, None)
-
-        tech_dictionary = [tag.nome for tag in tags]
+        if self._tech_dictionary is None:
+            async with self._tech_dictionary_lock:
+                if self._tech_dictionary is None:
+                    tags = await StackOverflow.run_scraper(2, None)
+                    self._tech_dictionary = [tag.nome for tag in tags]
 
         text = f"{title} {description}".lower()
         ranked = [
             (tag, text.count(tag.lower()))
-            for tag in tech_dictionary
+            for tag in self._tech_dictionary
         ]
         matched = [
             tag
