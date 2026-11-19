@@ -96,7 +96,11 @@ class SqlJobRepository(JobRepository):
             created_at=job.created_at
         )
         self.session.add(model)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
         await self.session.refresh(model)
         job.id = model.id
         return job
