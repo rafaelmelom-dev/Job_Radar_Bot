@@ -1,5 +1,4 @@
 import asyncio
-import random
 from dataclasses import dataclass, asdict
 from typing import Optional
 
@@ -28,11 +27,6 @@ class TagInfo:
     quantidade_perguntas: int
     descricao: str
     link: str
-
-
-async def pausa(minimo: float = 1.0, maximo: float = 3.0) -> None:
-    """Pausa com duração aleatória, como uma pessoa lendo a página."""
-    await asyncio.sleep(random.uniform(minimo, maximo))
 
 
 async def create_browser(p) -> Browser:
@@ -71,25 +65,6 @@ async def apply_stealth(context: BrowserContext) -> None:
     await stealth.apply_stealth_async(context)
 
 
-async def comportamento_humano(page: Page) -> None:
-    """Move o mouse e rola a página aos poucos."""
-    for _ in range(random.randint(3, 6)):
-        await page.mouse.move(
-            random.randint(100, 1200),
-            random.randint(100, 700),
-            steps=random.randint(10, 25),
-        )
-        await pausa(0.2, 0.6)
-
-    altura = await page.evaluate("document.body.scrollHeight")
-    posicao = 0
-    while posicao < altura:
-        passo = random.randint(250, 500)
-        await page.mouse.wheel(0, passo)
-        posicao += passo
-        await pausa(0.3, 0.9)
-
-
 async def aguardar_cloudflare(page: Page, tentativas: int = 10) -> bool:
     """Espera a verificação passar. Retorna False se continuar bloqueado."""
     for _ in range(tentativas):
@@ -108,7 +83,6 @@ async def navigate_to_tags(page: Page, pagina: int) -> None:
     if not await aguardar_cloudflare(page):
         raise RuntimeError("bloqueado pelo Cloudflare")
     await page.wait_for_selector("#tags-browser .js-tag-cell", state="visible", timeout=15000)
-
 
 async def extract_tags(page: Page) -> list[TagInfo]:
     """Extrai as tags da página atual."""
@@ -151,13 +125,12 @@ def print_tag_info(info: TagInfo) -> None:
 
 
 async def scrape_page(page: Page, numero: int) -> Optional[list[TagInfo]]:
-    """Processa uma página: navega -> age como humano -> extrai. Retorna None se falhar."""
+    """Processa uma página: navega e extrai as tags."""
     try:
         await navigate_to_tags(page, numero)
-        await comportamento_humano(page)
         tags = await extract_tags(page)
-        for t in tags:
-            print_tag_info(t)
+        # for t in tags:
+        #     print_tag_info(t)
         return tags
     except Exception as e:
         print(f"[ERRO] página {numero}: {e}")
@@ -187,13 +160,12 @@ async def run_scraper(paginas: int, arquivo: str) -> list[TagInfo]:
                     resultados.extend(tags)
                     falhas_seguidas = 0
                     # export_tags(resultados, arquivo)  # salva a cada página
-                    print(f"[OK] página {numero}: {len(resultados)} tags até agora")
+                    # print(f"[OK] página {numero}: {len(resultados)} tags até agora")
                 else:
                     falhas_seguidas += 1
-                    if falhas_seguidas >= 2:
-                        print("[PARADO] 2 falhas seguidas, provavelmente bloqueio.")
-                        break
-                await pausa(5, 10)
+                    # if falhas_seguidas >= 2:
+                    #     print("[PARADO] 2 falhas seguidas, provavelmente bloqueio.")
+                    #     break
         except KeyboardInterrupt:
             print("\n[INTERROMPIDO] salvando o que foi coletado...")
         finally:

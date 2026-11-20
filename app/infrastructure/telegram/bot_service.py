@@ -17,6 +17,31 @@ class TelegramNotificationService:
         # description = html.escape(job.description or "")
         description = f"Oportunidade para {title} na empresa {company} ({work_regime}). Candidatura através da ligação oficial."
 
+        company_info = job.company
+        company_lines = []
+        if company_info.rating:
+            company_lines.append(
+                f"⭐ <b>Avaliação:</b> {company_info.rating:.1f}/5"
+            )
+        if company_info.recommend_percentage:
+            company_lines.append(
+                f"👍 <b>Recomendam:</b> {company_info.recommend_percentage}%"
+            )
+        if company_info.reviews_count:
+            company_lines.append(
+                f"🗣 <b>Avaliações:</b> {company_info.reviews_count}"
+            )
+        if company_info.headquarter:
+            company_lines.append(
+                f"🌍 <b>Sede:</b> {html.escape(company_info.headquarter)}"
+            )
+        if company_info.link:
+            company_url = html.escape(company_info.link, quote=True)
+            company_lines.append(
+                f'🔎 <a href="{company_url}">Ver perfil da empresa</a>'
+            )
+        company_text = "\n".join(company_lines) if company_lines else "<i>Sem informações adicionais</i>"
+
         # Tags técnicas formatadas como <code>#tag</code>
         tags = [
             f"<code>#{html.escape(t.strip())}</code>"
@@ -27,7 +52,7 @@ class TelegramNotificationService:
 
         # 2. Formata lista de cursos com links clicáveis seguros
         courses_lines = []
-        for c in job.courses[:3]:
+        for c in job.courses[:6]:
             tipo = "Gratuito" if not c.is_paid else "Pago/Certificado"
             c_platform = html.escape(c.platform)
             c_title = html.escape(c.title)
@@ -49,12 +74,12 @@ class TelegramNotificationService:
             f"🎯 <b>NOVA VAGA ENCONTRADA NO SEU RADAR!</b>\n\n"
             f"📌 <b>Cargo:</b> {title}\n"
             f"🏢 <b>Empresa:</b> {company}\n"
+            f"{company_text}\n"
             f"📍 <b>Local:</b> {location} | <b>Regime:</b> {work_regime}\n"
             f"🛠 <b>Requisitos Técnicos:</b>\n{tags_str}\n\n"
             f"📝 <b>Descrição:</b>\n<i>{description}</i>\n\n"
             f"🎓 <b>Cursos Recomendados:</b>\n{courses_text}\n\n"
             f'🔗 <a href="{apply_url_escaped}"><b>CANDIDATAR-SE AGORA</b></a>'
-            f"{job.company}"
         )
         #        f"🏢 <b>Empresa:</b> {company} (⭐ {culture})\n"
 
@@ -67,4 +92,3 @@ class TelegramNotificationService:
             )
         except Exception as e:
             print(f"Erro ao enviar alerta para {chat_id}: {e}")
-

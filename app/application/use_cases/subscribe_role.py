@@ -55,4 +55,3 @@ class SubscribeRoleUseCase:
                 )
 
         return saved_sub
-

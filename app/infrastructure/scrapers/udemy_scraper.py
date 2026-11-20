@@ -107,7 +107,7 @@ class UdemyScraper:
                 )
 
                 try:
-                    page.wait_for_selector("a[href*='/course/']", timeout=12000)
+                    page.wait_for_selector("a[href*='/course/']", timeout=5000)
                 except Exception:
                     pass
 

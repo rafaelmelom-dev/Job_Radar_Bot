@@ -45,15 +45,30 @@ def buscar_youtube(termo, limite=10):
     soup = BeautifulSoup(resp.text, "html.parser")
 
     dados = None
+    decoder = json.JSONDecoder()
+    initial_data_pattern = re.compile(
+        r'(?:var\s+)?ytInitialData\s*=\s*|window\["ytInitialData"\]\s*=\s*'
+    )
     for script in soup.find_all("script"):
-        conteudo = script.string or ""
-        if "var ytInitialData" in conteudo:
-            json_bruto = conteudo.split("=", 1)[1].strip().rstrip(";")
-            dados = json.loads(json_bruto)
+        conteudo = script.get_text()
+        match = initial_data_pattern.search(conteudo)
+        if not match:
+            continue
+
+        json_bruto = conteudo[match.end():].lstrip()
+        try:
+            dados, _ = decoder.raw_decode(json_bruto)
             break
+        except json.JSONDecodeError:
+            continue
 
     if dados is None:
-        raise RuntimeError("ytInitialData não encontrado (layout mudou ou página de consentimento).")
+        titulo = soup.title.get_text(" ", strip=True) if soup.title else "sem título"
+        raise RuntimeError(
+            "YouTube não retornou ytInitialData "
+            f"(título da página: {titulo!r}, URL final: {resp.url}). "
+            "Pode ser página de consentimento, bloqueio ou mudança no layout."
+        )
 
     resultados, vistos = [], set()
     for vr in _encontrar(dados, "videoRenderer"):

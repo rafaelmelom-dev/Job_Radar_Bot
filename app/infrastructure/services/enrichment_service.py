@@ -2,6 +2,7 @@ import asyncio
 import html
 import logging
 import os
+import re
 
 import aiohttp
 
@@ -32,7 +33,16 @@ class DataEnrichmentService:
 
         text = f"{title} {description}".lower()
         ranked = [
-            (tag, text.count(tag.lower()))
+            (
+                tag,
+                len(
+                    re.findall(
+                        rf"(?<!\w){re.escape(tag)}(?!\w)",
+                        text,
+                        flags=re.IGNORECASE,
+                    )
+                ),
+            )
             for tag in self._tech_dictionary
         ]
         matched = [
@@ -52,7 +62,12 @@ class DataEnrichmentService:
 
     async def _get_youtube_courses(self, tag: str, limit: int) -> list[Course]:
         """Busca vídeos reais via YouTube"""
-        courses_scraped = youtube.buscar_youtube(tag, limit)
+        try:
+            courses_scraped = await asyncio.to_thread(youtube.buscar_youtube, tag, limit)
+        except Exception as e:
+            logger.warning("Falha ao buscar cursos no YouTube para %r: %s", tag, e)
+            return []
+
         courses = []
 
         for course in courses_scraped:
@@ -70,7 +85,6 @@ class DataEnrichmentService:
 
     async def _get_udemy_courses(self, tag: str) -> list[Course]:
         """Busca cursos via Udemy Scraper."""
-
         async with aiohttp.ClientSession() as session:
             scraper = udemy_scraper.UdemyScraper()
             return await scraper.get_courses(tag, session)
@@ -79,14 +93,14 @@ class DataEnrichmentService:
 
     async def get_courses_for_tag(self, tag: str) -> list[Course]:
         """Orquestra as buscas nos scrapes de cursos."""
-        udemy_courses = await self._get_udemy_courses(f"curso {tag}")
-        yt_courses = await self._get_youtube_courses(f"curso {tag}", 1)
+        yt_courses, udemy_courses = await asyncio.gather(
+            self._get_udemy_courses(f"curso {tag}"),
+            self._get_youtube_courses(f"curso {tag}", 1)
+        )
 
         return yt_courses + udemy_courses
 
     async def enrich(self, job: Job) -> Job:
-        loop = asyncio.get_running_loop()
-
         # 1. Extração de tags técnicas
         job.technical_requirements = await self.validate_tags(
             job.title, job.description

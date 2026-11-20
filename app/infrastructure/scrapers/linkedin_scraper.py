@@ -23,8 +23,8 @@ class LinkedInScraperService:
             site_name=["linkedin"],
             search_term=keyword,
             location="Brazil",
-            results_wanted=20,
-            hours_old=24,
+            results_wanted=10,
+            hours_old=8,
             fetch_description=True,
             # proxies=["user:pass@host:port", "localhost"],
         )

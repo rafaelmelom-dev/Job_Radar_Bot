@@ -67,38 +67,46 @@ async def click_first_company(page: Page) -> None:
 
 async def extract_company_info(page: Page) -> CompanyInfo:
     """Extrai informações da empresa da página de overview."""
-    headquarter = await page.locator(
-        "xpath=//span[text()='Sede']/preceding-sibling::span[1]"
-    ).text_content()
-    name = await page.locator(
+    name_locator = page.locator(
         "css=.EmployerInfo_employerInfoHeadingWrapper__3GunT"
-    ).text_content()
-    rating = await page.locator(
-        "css=.CompanyOverview_overallRating__TKVRp"
-    ).text_content()
-    rating = rating if rating else ""
-    rating = float(rating.strip().replace(",", "."))
-    recommend_percentage = await page.locator(
-        "css=.ReviewOverview_recommendLine__qeCP5"
-    ).text_content()
-    recommend_percentage = recommend_percentage if recommend_percentage else ""
-    recommend_percentage = "".join(
-        char for char in recommend_percentage if char.strip().isdigit()
     )
-    recommend_percentage = int(recommend_percentage)
-    reviews_count = await page.locator(
+    await name_locator.wait_for(state="attached", timeout=10000)
+    name = (await name_locator.text_content() or "").strip()
+
+    async def optional_text(selector: str) -> str:
+        locator = page.locator(selector)
+        if not await locator.count():
+            return ""
+        return (await locator.text_content() or "").strip()
+
+    headquarter = await optional_text(
+        "xpath=//span[text()='Sede']/preceding-sibling::span[1]"
+    )
+    rating_text = await optional_text(
+        "css=.CompanyOverview_overallRating__TKVRp"
+    )
+    recommend_text = await optional_text(
+        "css=.ReviewOverview_recommendLine__qeCP5"
+    )
+    reviews_text = await optional_text(
         "css=.CompanyOverview_ratingCount__j9KfQ"
-    ).text_content()
-    reviews_count = reviews_count if reviews_count else ""
-    reviews_count = "".join(char for char in reviews_count if char.strip().isdigit())
-    reviews_count = int(reviews_count)
+    )
+
+    def parse_int(value: str) -> int:
+        digits = "".join(char for char in value if char.isdigit())
+        return int(digits) if digits else 0
+
+    try:
+        rating = float(rating_text.replace(",", "."))
+    except (ValueError, AttributeError):
+        rating = 0.0
 
     return CompanyInfo(
-        name=name.strip() if name else "",
+        name=name,
         rating=rating,
-        recommend_percentage=recommend_percentage,
-        reviews_count=reviews_count,
-        headquarter=headquarter.strip() if headquarter else "",
+        recommend_percentage=parse_int(recommend_text),
+        reviews_count=parse_int(reviews_text),
+        headquarter=headquarter,
         link=page.url,
     )
 
